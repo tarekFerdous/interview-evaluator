@@ -1,0 +1,29 @@
+[project]
+name = "interview-evaluator"
+version = "0.1.0"
+description = "LLM-powered interview evaluator: scores candidate answers against a rubric with Claude"
+readme = "README.md"
+authors = [
+    { name = "tarekFerdous", email = "55275853+tarekFerdous@users.noreply.github.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "anthropic>=2.2.0",
+    "fastapi>=0.162.0",
+    "pydantic>=2.14.1",
+    "python-dotenv>=1.2.4",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+interview-evaluator = "interview_evaluator:main"
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+]
