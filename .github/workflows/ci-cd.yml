@@ -42,6 +42,7 @@ jobs:
     permissions:
       contents: read
       id-token: write # OIDC token for azure/login; no stored Azure secret
+      packages: write # push the image to ghcr.io with GITHUB_TOKEN
     env:
       RG: ${{ vars.AZURE_RESOURCE_GROUP }}
       IMAGE_NAME: interview-evaluator
@@ -54,45 +55,59 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Ensure registry and shared infra
-        id: infra
-        env:
-          POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
-        run: |
-          out=$(az deployment group create -g "$RG" -n infra-${{ github.run_number }} \
-            -f infra/main.bicep -p postgresAdminPassword="$POSTGRES_ADMIN_PASSWORD" \
-            --query properties.outputs -o json)
-          echo "acr=$(jq -r .acrName.value <<<"$out")" >> "$GITHUB_OUTPUT"
-          echo "server=$(jq -r .acrLoginServer.value <<<"$out")" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
         run: |
-          az acr login --name "${{ steps.infra.outputs.acr }}"
-          image="${{ steps.infra.outputs.server }}/$IMAGE_NAME:${{ github.sha }}"
-          docker build -t "$image" .
+          # ghcr needs a lowercase path; the owner name may contain capitals.
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE_NAME:${{ github.sha }}"
+          docker build -t "$image" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" .
           docker push "$image"
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+
+      # The Container App pulls anonymously, so the package must be public. A new ghcr package
+      # starts private and GITHUB_TOKEN can't change that, so fail here with a clear message.
+      - name: Check the image is publicly pullable
+        run: |
+          docker logout ghcr.io
+          if ! docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "::error::$IMAGE can't be pulled anonymously. Make the package public at https://github.com/${{ github.repository }}/pkgs/container/$IMAGE_NAME (Package settings > Change visibility), then re-run this job."
+            exit 1
+          fi
 
       - name: Deploy Container App
         id: app
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SERVICE_API_KEY: ${{ secrets.SERVICE_API_KEY }}
-          POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
+          # Optional: reuse an existing Speech resource instead of creating one (one F0 per subscription).
+          AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
+          AZURE_SPEECH_REGION: ${{ vars.AZURE_SPEECH_REGION }}
+          AZURE_SPEECH_SKU: ${{ vars.AZURE_SPEECH_SKU || 'F0' }}
         run: |
           fqdn=$(az deployment group create -g "$RG" -n app-${{ github.run_number }} \
             -f infra/main.bicep \
-            -p containerImage="${{ steps.infra.outputs.server }}/$IMAGE_NAME:${{ github.sha }}" \
+            -p containerImage="$IMAGE" \
                anthropicApiKey="$ANTHROPIC_API_KEY" serviceApiKey="$SERVICE_API_KEY" \
-               postgresAdminPassword="$POSTGRES_ADMIN_PASSWORD" voyageApiKey="$VOYAGE_API_KEY" \
+               databaseUrl="$DATABASE_URL" voyageApiKey="$VOYAGE_API_KEY" \
+               existingSpeechKey="$AZURE_SPEECH_KEY" existingSpeechRegion="$AZURE_SPEECH_REGION" \
+               speechSku="$AZURE_SPEECH_SKU" \
             --query properties.outputs.appFqdn.value -o tsv)
           echo "fqdn=$fqdn" >> "$GITHUB_OUTPUT"
 
       - name: Smoke check /health
         run: |
+          # The app scales to zero, so allow for a cold start (image pull + startup + migrations).
           for i in $(seq 1 20); do
-            if curl -fsS "https://${{ steps.app.outputs.fqdn }}/health"; then exit 0; fi
-            sleep 10
+            if curl -fsS --max-time 30 "https://${{ steps.app.outputs.fqdn }}/health"; then exit 0; fi
+            sleep 15
           done
           echo "::error::/health did not return 200 after deploy"
           exit 1

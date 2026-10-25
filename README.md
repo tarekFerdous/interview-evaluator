@@ -142,17 +142,24 @@ identical numbers. Re-baseline once the drafts are reviewed.
 
 ## Deploying to Azure Container Apps
 
-`infra/main.bicep` creates: Container Registry (no admin user), Log Analytics, a Container Apps
-environment, the Container App (external ingress, exactly 1 replica, `/health` probes, pulls
-with a user-assigned managed identity holding `AcrPull`), Azure Database for PostgreSQL Flexible
-Server (Burstable B1ms, `vector` allow-listed, Azure-services firewall rule, TLS required), and an
-Azure AI Speech (S0) resource. Secrets (`ANTHROPIC_API_KEY`, `SERVICE_API_KEY`, `DATABASE_URL`,
-`AZURE_SPEECH_KEY`, optional `VOYAGE_API_KEY`) are Container App secrets, never image or repo
-literals.
+The deployment is sized for **near-zero monthly cost**. `infra/main.bicep` creates only Log
+Analytics (30-day retention), a Container Apps environment, the Container App (external ingress,
+`/health` probes, **scales to zero** with at most 1 replica) and an Azure AI Speech resource
+(free F0 tier by default, or none if you reuse an existing one, see below). The
+image comes from a **public ghcr.io package** (anonymous pull, no registry to pay for) and the
+database is external: a free [Neon](https://neon.tech) Postgres works (it supports pgvector).
+Secrets (`ANTHROPIC_API_KEY`, `SERVICE_API_KEY`, `DATABASE_URL`, the Speech key, optional
+`VOYAGE_API_KEY`) are Container App secrets, never image or repo literals; `DATABASE_URL` and
+`VOYAGE_API_KEY` are optional (the matching features stay off without them).
+
+Scaling to zero means the first request after an idle period waits for a cold start, and the
+in-memory rate limits, live sessions and transcription jobs reset when the app scales down. That
+is acceptable for a demo; move them to Postgres/Redis for real use.
 
 `.github/workflows/ci-cd.yml` runs the tests on every PR and push; on `main` it signs in to Azure
-with **OIDC** (no stored Azure secret), deploys the shared infra, builds and pushes the image
-tagged with the commit SHA, deploys the app on that image and fails unless `/health` answers.
+with **OIDC** (no stored Azure secret), pushes `ghcr.io/<owner>/interview-evaluator:<commit sha>`
+with `GITHUB_TOKEN`, checks the image can be pulled anonymously, deploys the Bicep once with that
+image and fails unless `/health` answers (20 tries, 15 s apart, to allow for a cold start).
 
 ### One-time bootstrap
 
@@ -163,8 +170,8 @@ az group create -n $RG -l $LOCATION
 # App registration + service principal that GitHub Actions signs in as
 APP_ID=$(az ad app create --display-name interview-evaluator-ci --query appId -o tsv)
 az ad sp create --id $APP_ID
-az role assignment create --assignee $APP_ID --role Owner \
-  --scope $(az group show -n $RG --query id -o tsv)   # Owner: the Bicep creates role assignments
+az role assignment create --assignee $APP_ID --role Contributor \
+  --scope $(az group show -n $RG --query id -o tsv)   # no role assignments are created, so Contributor is enough
 
 # Federated credential for the `production` environment of this repo
 az ad app federated-credential create --id $APP_ID --parameters '{
@@ -179,10 +186,19 @@ In GitHub, create the `production` environment and set:
 
 - **Variables:** `AZURE_CLIENT_ID` (= `$APP_ID`), `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`,
   `AZURE_RESOURCE_GROUP` (= `$RG`)
-- **Secrets:** `ANTHROPIC_API_KEY`, `SERVICE_API_KEY`, `POSTGRES_ADMIN_PASSWORD`, and optionally
-  `VOYAGE_API_KEY`
+- **Secrets:** `ANTHROPIC_API_KEY`, `SERVICE_API_KEY`, `DATABASE_URL` (your Neon connection
+  string, e.g. `postgresql://…/neondb?sslmode=require`), and optionally `VOYAGE_API_KEY`
+- **Speech (optional):** by default the Bicep creates a free **F0** Speech resource. Azure allows
+  only **one F0 Speech resource per subscription**, so if you already have one (e.g. for local
+  development), reuse it instead: set the secret `AZURE_SPEECH_KEY` and the variable
+  `AZURE_SPEECH_REGION`, and no Speech resource is created. F0 may not support **fast
+  transcription** (recording uploads); if uploads fail, set the variable `AZURE_SPEECH_SKU=S0`
+  (passed as `speechSku`; pay per audio hour) or point `AZURE_SPEECH_KEY` at an S0 resource.
 
-Push to `main` to deploy. The app URL is printed by the "Deploy Container App" step.
+Push to `main` to deploy. **The first run stops at "Check the image is publicly pullable"**: a new
+ghcr package is private. Open the package (repo page → Packages → `interview-evaluator` →
+Package settings), change its visibility to **Public**, then re-run the job. The app URL is
+printed by the "Deploy Container App" step.
 
 ## Design decisions
 
@@ -203,7 +219,8 @@ Push to `main` to deploy. The app URL is printed by the "Deploy Container App" s
   one.
 - **Failure handling:** refusals → 422 (after Anthropic's server-side fallback model); rate
   limits, auth, API and connection errors map to distinct statuses, also as SSE `error` events.
-- **Single replica:** rate limits, live sessions and transcription jobs are in memory, so the
-  app is pinned to one replica. Move them to Postgres/Redis before scaling out.
+- **At most one replica, scale to zero:** rate limits, live sessions and transcription jobs are
+  in memory, so the app runs on at most one replica, and they reset when it scales to zero
+  (fine for a demo). Move them to Postgres/Redis before scaling out or keeping state.
 - **Privacy:** audio is never stored; transcripts are stored only with evaluations (when
   persistence is on) and can be deleted via `DELETE /evaluations/{id}`.
