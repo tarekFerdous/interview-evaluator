@@ -1,8 +1,11 @@
 """Scores an interview transcript against a rubric with Claude, using structured outputs."""
 
+from collections.abc import Sequence
+from functools import lru_cache
+
 import anthropic
 
-from .models import Evaluation, EvaluationRequest
+from .models import CalibrationExample, Evaluation, EvaluationRequest
 
 MODEL = "claude-opus-5-5"
 
@@ -21,31 +24,82 @@ and say so; never infer skills the candidate did not show.
 missing topics.
 - follow_up_questions should target the weakest or least-evidenced competencies."""
 
+# Added only when calibration examples are sent, so uncalibrated prompts are unchanged.
+CALIBRATION_RULE = """
+- <calibration_examples> are past candidates for this rubric with scores approved by this \
+hiring team. Use them as anchors for how strictly to apply the 1-5 scale, never as evidence \
+about this candidate."""
+
 
 class EvaluationRefused(Exception):
     """Claude (and its fallback) declined the request."""
 
 
-def build_user_message(req: EvaluationRequest) -> str:
+@lru_cache
+def get_client() -> anthropic.Anthropic:
+    """FastAPI dependency (tests override it with a fake)."""
+    return anthropic.Anthropic()
+
+
+CACHE = {"type": "ephemeral"}
+
+
+def format_transcript(transcript) -> str:
+    return "\n\n".join(f"Q{i}: {qa.question}\nA{i}: {qa.answer}" for i, qa in enumerate(transcript, 1))
+
+
+def calibration_block(examples: Sequence[CalibrationExample]) -> str:
+    """Transcript plus the human-approved scores and recommendation only (no model reasoning)."""
+    parts = []
+    for n, ex in enumerate(examples, 1):
+        scores = "\n".join(f"- {c}: {s}" for c, s in ex.scores.items())
+        parts.append(
+            f'<example n="{n}">\n<transcript>\n{format_transcript(ex.transcript)}\n</transcript>\n'
+            f"<approved_scores>\n{scores}\n</approved_scores>\n"
+            f"<approved_recommendation>{ex.recommendation}</approved_recommendation>\n</example>"
+        )
+    return "<calibration_examples>\n" + "\n\n".join(parts) + "\n</calibration_examples>"
+
+
+def build_user_content(
+    req: EvaluationRequest, calibration: Sequence[CalibrationExample] = ()
+) -> list[dict]:
+    """Stable prefix (job description + rubric, then any calibration examples) cached; the growing
+    transcript goes last, uncached, so re-evaluating a live session after each answer re-reads the
+    prefix from cache."""
     rubric = "\n".join(f"- {c}" for c in req.rubric)
-    transcript = "\n\n".join(
-        f"Q{i}: {qa.question}\nA{i}: {qa.answer}" for i, qa in enumerate(req.transcript, 1)
+    blocks = [
+        {
+            "type": "text",
+            "text": f"<job_description>\n{req.job_description}\n</job_description>\n\n"
+            f"<rubric>\n{rubric}\n</rubric>",
+            "cache_control": CACHE,
+        }
+    ]
+    if calibration:
+        blocks.append({"type": "text", "text": calibration_block(calibration), "cache_control": CACHE})
+    blocks.append(
+        {
+            "type": "text",
+            "text": f"<transcript>\n{format_transcript(req.transcript)}\n</transcript>\n\n"
+            "Evaluate the candidate.",
+        }
     )
-    return (
-        f"<job_description>\n{req.job_description}\n</job_description>\n\n"
-        f"<rubric>\n{rubric}\n</rubric>\n\n"
-        f"<transcript>\n{transcript}\n</transcript>\n\n"
-        "Evaluate the candidate."
-    )
+    return blocks
 
 
-def evaluate(req: EvaluationRequest, client: anthropic.Anthropic | None = None) -> Evaluation:
+def evaluate(
+    req: EvaluationRequest,
+    client: anthropic.Anthropic | None = None,
+    calibration: Sequence[CalibrationExample] = (),
+) -> Evaluation:
     client = client or anthropic.Anthropic()
+    system = SYSTEM_PROMPT + (CALIBRATION_RULE if calibration else "")
     response = client.beta.messages.parse(
         model=MODEL,
         max_tokens=16000,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": build_user_message(req)}],
+        system=[{"type": "text", "text": system, "cache_control": CACHE}],
+        messages=[{"role": "user", "content": build_user_content(req, calibration)}],
         output_format=Evaluation,
         output_config={"effort": "medium"},
         # On a safety decline, re-run on Anthropic's recommended fallback model.

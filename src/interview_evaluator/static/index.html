@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interview Evaluator</title>
+  <link rel="stylesheet" href="app.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Interview Evaluator</h1>
+    <button type="button" id="key-button" class="ghost">API key</button>
+  </header>
+
+  <main>
+    <form id="eval-form" novalidate>
+      <section class="card">
+        <div class="row-between">
+          <h2>Role</h2>
+          <button type="button" id="load-example" class="ghost">Load example</button>
+        </div>
+
+        <label for="job-description">Job description</label>
+        <textarea id="job-description" rows="4" placeholder="What the role does and what good looks like"></textarea>
+
+        <div id="rubric-library" hidden>
+          <label for="rubric-picker">Saved rubric</label>
+          <div class="picker-row">
+            <select id="rubric-picker">
+              <option value="">Type a new rubric below</option>
+            </select>
+            <button type="button" id="rubric-suggest" class="ghost">Suggest for this job</button>
+          </div>
+          <p id="rubric-hint" class="hint" hidden></p>
+        </div>
+
+        <label for="rubric">Rubric <span class="hint">one competency per line</span></label>
+        <textarea id="rubric" rows="4" placeholder="Python and backend engineering&#10;Communication"></textarea>
+
+        <details id="rubric-save-box" class="paste" hidden>
+          <summary>Save this rubric to the library</summary>
+          <label for="rubric-name">Rubric name</label>
+          <input id="rubric-name" placeholder="e.g. Backend Engineer L4">
+          <div class="actions">
+            <button type="button" id="rubric-save" class="ghost">Save rubric</button>
+          </div>
+        </details>
+        <p id="rubric-error" class="error" role="alert" hidden></p>
+      </section>
+
+      <div class="tabs" role="tablist" aria-label="Mode">
+        <button type="button" role="tab" id="tab-transcript" aria-controls="panel-transcript" aria-selected="true">Transcript</button>
+        <button type="button" role="tab" id="tab-live" aria-controls="panel-live" aria-selected="false">Live interview</button>
+      </div>
+
+      <section class="card" id="panel-transcript" role="tabpanel" aria-labelledby="tab-transcript">
+        <h2>Transcript</h2>
+        <details id="paste-box" class="paste">
+          <summary>Paste a transcript</summary>
+          <label for="paste">Raw transcript <span class="hint">lines starting with <code>Q:</code> and <code>A:</code>; other lines continue the current one</span></label>
+          <textarea id="paste" rows="6" placeholder="Q: Tell me about something you shipped.&#10;A: I built..."></textarea>
+          <div class="actions">
+            <button type="button" id="parse" class="ghost">Parse into Q&amp;A pairs below</button>
+          </div>
+        </details>
+        <details id="upload-box" class="paste">
+          <summary>Upload a call recording</summary>
+          <label for="audio-file">Recording <span class="hint">wav, mp3 or m4a, up to 100 MB and 60 minutes; the audio is not stored</span></label>
+          <input type="file" id="audio-file" accept=".wav,.mp3,.m4a,audio/wav,audio/mpeg,audio/mp4,audio/x-m4a">
+          <div class="actions">
+            <button type="button" id="upload" class="ghost">Transcribe into Q&amp;A pairs below</button>
+          </div>
+          <p id="upload-status" class="status-line" role="status" hidden></p>
+          <details id="diarized-box" hidden>
+            <summary>Diarized transcript (check the split)</summary>
+            <ol id="diarized" class="diarized"></ol>
+          </details>
+        </details>
+        <ol id="pairs" class="pairs"></ol>
+        <button type="button" id="add-pair" class="ghost">+ Add Q&amp;A</button>
+
+        <p id="form-error" class="error" role="alert" hidden></p>
+        <div class="actions">
+          <button type="submit" id="evaluate">Evaluate</button>
+        </div>
+      </section>
+
+      <section class="card" id="panel-live" role="tabpanel" aria-labelledby="tab-live" hidden>
+        <h2>Live interview</h2>
+        <div id="live-idle">
+          <p class="hint">Start a session with the role above, then log each answer as the candidate gives it. The scorecard re-scores after every answer.</p>
+          <div class="actions">
+            <button type="button" id="live-start">Start live session</button>
+          </div>
+        </div>
+        <div id="live-active" hidden>
+          <p id="live-meta" class="hint"></p>
+          <fieldset id="mic-mode" class="mic-mode">
+            <legend>Audio for the microphone</legend>
+            <label><input type="radio" name="mic-mode" id="mic-mode-remote" value="remote"> Remote call <span class="hint">(my mic + the call's tab audio)</span></label>
+            <label><input type="radio" name="mic-mode" id="mic-mode-room" value="room"> In the room <span class="hint">(this mic only)</span></label>
+            <p id="mic-mode-hint" class="hint"></p>
+          </fieldset>
+          <div class="picker-row">
+            <button type="button" id="mic-toggle" class="ghost" aria-pressed="false">Start microphone</button>
+            <span id="mic-state" class="status-line" role="status"></span>
+          </div>
+          <p id="captions" class="captions" aria-live="polite" hidden></p>
+          <div class="actions" id="mic-send-row" hidden>
+            <span id="mic-buffered" class="hint"></span>
+            <button type="button" id="mic-send" class="ghost">Send exchange now</button>
+          </div>
+          <ol id="live-transcript" class="live-transcript"></ol>
+          <div class="actions">
+            <button type="button" id="live-edit-last" class="ghost" hidden>Fix last Q&amp;A</button>
+          </div>
+          <label for="live-question">Question</label>
+          <textarea id="live-question" rows="2"></textarea>
+          <label for="live-answer">Answer</label>
+          <textarea id="live-answer" rows="3"></textarea>
+          <div class="actions">
+            <button type="button" id="live-end" class="ghost">End interview</button>
+            <button type="button" id="live-add">Add answer</button>
+          </div>
+        </div>
+        <p id="live-error" class="error" role="alert" hidden></p>
+      </section>
+    </form>
+
+    <section id="status" class="card status" hidden aria-live="polite"></section>
+
+    <section id="result" class="card" hidden aria-live="polite"></section>
+  </main>
+
+  <dialog id="key-dialog">
+    <form method="dialog" id="key-form">
+      <h2>Service API key</h2>
+      <p class="hint">Sent as <code>X-API-Key</code> and remembered in this browser.</p>
+      <input id="key-input" type="password" autocomplete="off" placeholder="Paste the key">
+      <div class="actions">
+        <button type="button" id="key-clear" class="ghost">Clear saved key</button>
+        <button type="button" id="key-cancel" class="ghost">Cancel</button>
+        <button type="submit" id="key-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="pair-template">
+    <li class="pair">
+      <label>Question <textarea class="q" rows="2"></textarea></label>
+      <label>Answer <textarea class="a" rows="3"></textarea></label>
+      <button type="button" class="ghost remove" aria-label="Remove this Q&amp;A">Remove</button>
+    </li>
+  </template>
+</body>
+</html>

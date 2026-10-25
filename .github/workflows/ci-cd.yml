@@ -1,0 +1,98 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: evaluator
+          POSTGRES_PASSWORD: evaluator
+          POSTGRES_DB: evaluator_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evaluator -d evaluator_test"
+          --health-interval 2s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql://evaluator:evaluator@localhost:5432/evaluator_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.0"
+      - run: uv sync --locked
+      - run: uv run pytest -q
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency: deploy
+    permissions:
+      contents: read
+      id-token: write # OIDC token for azure/login; no stored Azure secret
+    env:
+      RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+      IMAGE_NAME: interview-evaluator
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure registry and shared infra
+        id: infra
+        env:
+          POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+        run: |
+          out=$(az deployment group create -g "$RG" -n infra-${{ github.run_number }} \
+            -f infra/main.bicep -p postgresAdminPassword="$POSTGRES_ADMIN_PASSWORD" \
+            --query properties.outputs -o json)
+          echo "acr=$(jq -r .acrName.value <<<"$out")" >> "$GITHUB_OUTPUT"
+          echo "server=$(jq -r .acrLoginServer.value <<<"$out")" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        run: |
+          az acr login --name "${{ steps.infra.outputs.acr }}"
+          image="${{ steps.infra.outputs.server }}/$IMAGE_NAME:${{ github.sha }}"
+          docker build -t "$image" .
+          docker push "$image"
+
+      - name: Deploy Container App
+        id: app
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SERVICE_API_KEY: ${{ secrets.SERVICE_API_KEY }}
+          POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
+        run: |
+          fqdn=$(az deployment group create -g "$RG" -n app-${{ github.run_number }} \
+            -f infra/main.bicep \
+            -p containerImage="${{ steps.infra.outputs.server }}/$IMAGE_NAME:${{ github.sha }}" \
+               anthropicApiKey="$ANTHROPIC_API_KEY" serviceApiKey="$SERVICE_API_KEY" \
+               postgresAdminPassword="$POSTGRES_ADMIN_PASSWORD" voyageApiKey="$VOYAGE_API_KEY" \
+            --query properties.outputs.appFqdn.value -o tsv)
+          echo "fqdn=$fqdn" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke check /health
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS "https://${{ steps.app.outputs.fqdn }}/health"; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::/health did not return 200 after deploy"
+          exit 1

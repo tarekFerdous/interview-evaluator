@@ -10,9 +10,14 @@ requires-python = ">=3.13"
 dependencies = [
     "anthropic>=2.2.0",
     "fastapi>=0.162.0",
+    "httpx>=0.28.1",
+    "pgvector>=0.4",
+    "psycopg[binary]>=3.2",
     "pydantic>=2.14.1",
     "python-dotenv>=1.2.4",
+    "python-multipart>=0.0.20",
     "uvicorn[standard]>=0.54.0",
+    "voyageai>=0.3",
 ]
 
 [project.scripts]
@@ -21,6 +26,9 @@ interview-evaluator = "interview_evaluator:main"
 [build-system]
 requires = ["uv_build>=0.13.0,<0.14.0"]
 build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+pythonpath = [".", "tests"]
 
 [dependency-groups]
 dev = [

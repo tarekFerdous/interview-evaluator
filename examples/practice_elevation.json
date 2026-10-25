@@ -1,0 +1,36 @@
+{
+  "job_description": "Applied AI Engineer at Elevation Capital, a group of companies across CPG, hospitality, technology and real estate. Build an AI-first operating layer: LLM-driven internal tools, AI interview systems, voice agents, RAG pipelines and React Native mobile apps. Python (FastAPI) is primary; Node.js, React/Next.js and Azure are also used. 2-5 years shipping real products in small teams, high ownership, minimal direction.",
+  "rubric": [
+    "Python and backend engineering",
+    "Hands-on LLM experience",
+    "Ownership and shipping speed",
+    "Mobile (React Native)",
+    "Communication"
+  ],
+  "transcript": [
+    {
+      "question": "Tell me about something you built and shipped end to end.",
+      "answer": "At EnkiLabs, a personal-safety app, I joined as founding engineer. I rebuilt the onboarding in React Native with Expo SDK 54: a splash screen, a three-slide swipeable walkthrough and a theme toggle. I also fixed an animation glitch by keeping two slots always mounted. Before that I ran a security audit with SonarQube, OWASP ZAP and AI-assisted review, found about 25 issues and fixed about 20 of them."
+    },
+    {
+      "question": "What hands-on experience do you have with LLMs?",
+      "answer": "Most of my LLM work has been AI-assisted engineering: I built Rhubarb, an orchestrator that drives Claude Code through a PRD, issues, implementation and QA pipeline. This week I built an interview evaluator in Python with FastAPI and the Claude API. It uses structured outputs so every response matches a Pydantic schema, requires quoted evidence for every score, uses prompt caching, and I measure it against a labelled eval set."
+    },
+    {
+      "question": "How strong is your Python?",
+      "answer": "TypeScript has been my main language day to day. I used Python for machine-learning research, where I was second author on an IEEE paper with a Keras model, and now for FastAPI services. I'm comfortable with Pydantic, async and pytest, and I'm actively sharpening it."
+    },
+    {
+      "question": "Tell me about a time you worked through an ambiguous problem without much direction.",
+      "answer": "At EnkiLabs the app had about two years of development but no clear path to production. Nobody asked me to, but I wrote a production-readiness programme covering security, testing, performance and deployment, pitched it to the two CEOs, and they approved it. We're implementing it now."
+    },
+    {
+      "question": "Tell me about something that didn't go well and what you learned.",
+      "answer": "At Together Initiatives I built a multi-tenant e-commerce platform and demoed it to a US client, who liked it. But the project manager took the technical Q&A without knowing the codebase, the client lost confidence and it didn't sell. I learned that the person who built the system should handle the technical questions, and now I make sure I'm in the room for those."
+    },
+    {
+      "question": "Have you built a RAG pipeline?",
+      "answer": "Not in production yet. I understand the pattern: chunk and embed documents, store them in a vector database like pgvector, retrieve the most relevant chunks with hybrid semantic and keyword search, and ground the answer with citations. I'm building an HR knowledge assistant for Together Initiatives on that pattern next."
+    }
+  ]
+}

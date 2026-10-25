@@ -11,3 +11,6 @@ wheels/
 
 # Secrets
 .env
+
+# Eval run results
+evals/results/

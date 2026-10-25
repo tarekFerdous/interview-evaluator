@@ -1,0 +1,31 @@
+{
+  "id": "seed-data-engineer-weak",
+  "reviewed": true,
+  "notes": "Hand-written seed. Vague, buzzword answers with no specifics; SQL answer is wrong (claims indexes slow down reads).",
+  "request": {
+    "job_description": "Data Engineer. Design and operate batch and streaming pipelines on Postgres and Spark, own data quality, and work with analysts to deliver reliable datasets.",
+    "rubric": ["SQL and data modelling", "Pipeline engineering", "Data quality ownership"],
+    "transcript": [
+      {
+        "question": "How would you speed up a slow query that filters a large table by customer_id?",
+        "answer": "I would probably remove the indexes, because indexes slow down reads. Or move it to Spark, Spark is faster for everything."
+      },
+      {
+        "question": "Walk me through a pipeline you built.",
+        "answer": "I worked on a lot of pipelines. We used Airflow and things. It was big data so it was quite complex."
+      },
+      {
+        "question": "What do you do when a dashboard shows wrong numbers?",
+        "answer": "I tell the analysts to check their dashboard, usually it is their side."
+      }
+    ]
+  },
+  "expected": {
+    "scores": {
+      "SQL and data modelling": 1,
+      "Pipeline engineering": 2,
+      "Data quality ownership": 1
+    },
+    "recommendation": "no"
+  }
+}

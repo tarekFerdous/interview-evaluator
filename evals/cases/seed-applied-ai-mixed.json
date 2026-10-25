@@ -1,0 +1,32 @@
+{
+  "id": "seed-applied-ai-mixed",
+  "reviewed": true,
+  "notes": "Hand-written seed. Strong shipping and LLM evidence; no evidence of pushing back, and communication is clear but brief.",
+  "request": {
+    "job_description": "Applied AI Engineer. Build LLM-driven internal tools, RAG pipelines and voice agents in Python (FastAPI). Ship to production fast in a small team with high ownership.",
+    "rubric": ["Python and backend engineering", "Hands-on LLM experience", "Ownership and shipping speed", "Communication"],
+    "transcript": [
+      {
+        "question": "Tell me about something you built and shipped end to end.",
+        "answer": "I built a FastAPI service that summarizes support tickets with an LLM. I wrote the prompt, added Pydantic validation on the output, deployed it in Docker, and it cut triage time for our team of six from about 20 minutes to 5 per day."
+      },
+      {
+        "question": "How do you know an LLM feature is working well?",
+        "answer": "I keep a small eval set of real tickets with expected labels and run it before every prompt change. When accuracy dropped after a model update I caught it from the eval, not from users."
+      },
+      {
+        "question": "Describe a time you disagreed with a technical decision.",
+        "answer": "I usually just go with what the lead says."
+      }
+    ]
+  },
+  "expected": {
+    "scores": {
+      "Python and backend engineering": 4,
+      "Hands-on LLM experience": 5,
+      "Ownership and shipping speed": 4,
+      "Communication": 3
+    },
+    "recommendation": "yes"
+  }
+}
