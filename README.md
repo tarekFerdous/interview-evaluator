@@ -16,7 +16,7 @@ Paste a transcript, upload a call recording or score a live interview as it happ
 ![Azure AI Speech](https://img.shields.io/badge/Azure%20AI%20Speech-live%20%2B%20recordings-0078D4?logo=microsoftazure&logoColor=white)
 ![Azure Container Apps](https://img.shields.io/badge/deploys%20on-Azure%20Container%20Apps-0078D4?logo=microsoftazure&logoColor=white)
 ![Near-zero cost](https://img.shields.io/badge/hosting-near--zero%20cost-2ea44f)
-![Tests](https://img.shields.io/badge/tests-99-brightgreen)
+![Tests](https://img.shields.io/badge/tests-102-brightgreen)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 [![CI/CD](https://github.com/tarekFerdous/interview-evaluator/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/tarekFerdous/interview-evaluator/actions/workflows/ci-cd.yml)
 

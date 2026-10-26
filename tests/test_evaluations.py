@@ -119,3 +119,12 @@ def test_approve_unknown_evaluation_is_404(db_url):
 def test_evaluation_endpoints_are_503_without_a_database():
     client, _ = make_client()
     assert client.get("/evaluations/00000000-0000-0000-0000-000000000000").status_code == 503
+
+
+def test_approve_accepts_shortened_names_and_stores_rubric_text(db_url):
+    rubric = ["Root-cause analysis: breaks a problem into hypotheses", "Communication: plain and clear"]
+    client, _ = make_client(FakeMessages(parsed=evaluation({"Root-cause analysis": 3, "Communication": 4})))
+    eid = evaluate(client, SAMPLE | {"rubric": rubric})["id"]
+    res = client.post(f"/evaluations/{eid}/approve", json={"scores": {"Root-cause analysis": 5}})
+    assert res.status_code == 200, res.text
+    assert res.json()["approved_scores"] == {rubric[0]: 5, rubric[1]: 4}

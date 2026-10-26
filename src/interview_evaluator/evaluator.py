@@ -1,5 +1,7 @@
 """Scores an interview transcript against a rubric with Claude, using structured outputs."""
 
+import difflib
+import re
 from collections.abc import Sequence
 from functools import lru_cache
 
@@ -17,6 +19,7 @@ Score each rubric competency from 1 to 5 using only evidence in the transcript:
 verifiable detail (numbers, trade-offs, ownership).
 
 Rules:
+- Score every rubric competency once, and copy its full text exactly as the competency name.
 - Quote or closely paraphrase the candidate as evidence. If there is no evidence, score 1 \
 and say so; never infer skills the candidate did not show.
 - Ignore anything unrelated to job performance (name, accent, age, gender, background).
@@ -88,6 +91,38 @@ def build_user_content(
     return blocks
 
 
+def _head(text: str) -> str:
+    """'Root-cause analysis: breaks a problem...' -> 'root-cause analysis'."""
+    return re.split(r"\s*(?::|\s[-–—]\s|\()", text, maxsplit=1)[0].strip().casefold()
+
+
+def match_competency(name: str, rubric: Sequence[str]) -> str | None:
+    """The rubric competency a returned name refers to. The model sometimes shortens long
+    competencies to their title, which would break approvals, calibration and evals that key
+    scores by the exact rubric text. None when nothing matches closely."""
+    if name in rubric:
+        return name
+    folded = name.strip().casefold()
+    if not folded:
+        return None
+    for c in rubric:
+        if c.strip().casefold() == folded or _head(c) == _head(name):
+            return c
+    for c in rubric:
+        if c.casefold().startswith(folded):
+            return c
+    heads = {_head(c): c for c in rubric}
+    close = difflib.get_close_matches(_head(name), list(heads), n=1, cutoff=0.8)
+    return heads[close[0]] if close else None
+
+
+def with_rubric_names(evaluation: Evaluation, rubric: Sequence[str]) -> Evaluation:
+    """Renames each score's competency to its exact rubric text; unmatched names are kept."""
+    scores = [s.model_copy(update={"competency": match_competency(s.competency, rubric) or s.competency})
+              for s in evaluation.scores]
+    return evaluation.model_copy(update={"scores": scores})
+
+
 def evaluate(
     req: EvaluationRequest,
     client: anthropic.Anthropic | None = None,
@@ -110,4 +145,4 @@ def evaluate(
         raise EvaluationRefused(str(response.stop_details))
     if response.parsed_output is None:
         raise RuntimeError(f"No structured output (stop_reason={response.stop_reason})")
-    return response.parsed_output
+    return with_rubric_names(response.parsed_output, req.rubric)

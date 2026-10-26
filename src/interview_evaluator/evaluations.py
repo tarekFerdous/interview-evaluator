@@ -12,7 +12,7 @@ from psycopg.types.json import Jsonb
 
 from .db import get_db
 from .embeddings import Embedder
-from .evaluator import EvaluationRefused, evaluate
+from .evaluator import EvaluationRefused, evaluate, match_competency
 from .models import (
     ApproveRequest,
     CalibrationExample,
@@ -212,10 +212,15 @@ def approve_evaluation(
     body = body or ApproveRequest()
     if (stored := repo.get(evaluation_id)) is None:
         raise _not_found()
-    corrections = body.scores or {}
-    if unknown := sorted(set(corrections) - set(stored.request.rubric)):
+    rubric = stored.request.rubric
+    # Keyed by exact rubric text; older evaluations may carry the model's shortened names.
+    named = {name: match_competency(name, rubric) for name in body.scores or {}}
+    if unknown := sorted(name for name, c in named.items() if c is None):
         raise HTTPException(422, f"Not competencies of this evaluation's rubric: {unknown}")
-    scores = {s.competency: s.score for s in stored.evaluation.scores} | corrections
+    corrections = {named[name]: score for name, score in (body.scores or {}).items()}
+    model_scores = {match_competency(s.competency, rubric) or s.competency: s.score
+                    for s in stored.evaluation.scores}
+    scores = model_scores | corrections
     recommendation = body.recommendation or stored.evaluation.recommendation
     repo.approve(evaluation_id, scores, recommendation)
     return repo.get(evaluation_id)
