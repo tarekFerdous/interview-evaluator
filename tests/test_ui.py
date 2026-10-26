@@ -45,3 +45,13 @@ def test_root_redirects_to_ui_and_docs_still_work():
     res = client.get("/", follow_redirects=False)
     assert res.status_code == 307 and res.headers["location"] == "/ui/"
     assert client.get("/docs").status_code == 200
+
+
+def test_dashboard_shell_has_sidebar_nav_header_actions_and_add_card():
+    html = client_requiring_key().get("/ui/").text
+    for marker in (
+        'class="sidebar"', 'id="tab-transcript"', 'id="tab-live"', 'role="tablist"',
+        'id="key-button"', 'id="key-icon"', 'id="load-example"', "Hi, Interviewer!",
+        'id="add-pair" class="add-card"', 'id="evaluate"',
+    ):
+        assert marker in html, marker

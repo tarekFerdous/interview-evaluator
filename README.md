@@ -16,13 +16,13 @@ Paste a transcript, upload a call recording or score a live interview as it happ
 ![Azure AI Speech](https://img.shields.io/badge/Azure%20AI%20Speech-live%20%2B%20recordings-0078D4?logo=microsoftazure&logoColor=white)
 ![Azure Container Apps](https://img.shields.io/badge/deploys%20on-Azure%20Container%20Apps-0078D4?logo=microsoftazure&logoColor=white)
 ![Near-zero cost](https://img.shields.io/badge/hosting-near--zero%20cost-2ea44f)
-![Tests](https://img.shields.io/badge/tests-102-brightgreen)
+![Tests](https://img.shields.io/badge/tests-103-brightgreen)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 [![CI/CD](https://github.com/tarekFerdous/interview-evaluator/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/tarekFerdous/interview-evaluator/actions/workflows/ci-cd.yml)
 
-<img src="docs/demo.gif" alt="Animated: filling in a Logistics Data Analyst job description and a seven-competency rubric, pasting a seven-question transcript and parsing it into Q&A pairs, clicking Evaluate, then scrolling a 'Strong yes' scorecard with a 1–5 bar, quoted evidence and reasoning per competency, strengths, concerns and follow-up questions" width="820">
+<img src="docs/demo.gif" alt="Animated: on a beige dashboard with a white sidebar, filling in a Logistics Data Analyst job description and rubric, pasting a seven-question transcript that becomes seven Q&A cards next to a dashed Add Q&A card, clicking Evaluate, then the scorecard: a black hero card with 'Strong yes', a 4.7 average and strong/adequate/weak tiles, a gray bar chart per competency, a 100% evidence-coverage ring, and white competency cards with quoted evidence" width="820">
 
-<sub>A real run against Claude, recorded with Playwright. The 15-second wait for the scorecard is cut. The sample role and transcript are in <a href="examples/logistics_analyst.txt"><code>examples/logistics_analyst.txt</code></a>.</sub>
+<sub>A real run against Claude, recorded with Playwright. The wait for the scorecard (about 18 s) is cut. The sample role and transcript are in <a href="examples/logistics_analyst.txt"><code>examples/logistics_analyst.txt</code></a>.</sub>
 
 </div>
 
@@ -45,10 +45,16 @@ Paste a transcript, upload a call recording or score a live interview as it happ
 
 ## How it looks
 
+<p align="center">
+  <img src="docs/dashboard.png" alt="Scorecard dashboard: white sidebar with Transcript, Live interview and API key; a black hero card with 'Strong yes', a 4.7 average score, 7 Q&As scored and tiles for 7 strong, 0 adequate and 0 weak competencies; a gray bar chart of the score per competency; a white ring showing 7 of 7 competencies backed by evidence; a summary card and the first competency cards" width="820"><br>
+  <sub><b>Scorecard dashboard</b>: verdict and stats first, then a chart per competency and how much of the rubric has evidence</sub>
+</p>
+
 <table>
   <tr>
-    <td align="center" valign="top" width="50%"><img src="docs/role.png" alt="Role card with a Logistics Data Analyst job description and a rubric of competencies, one per line" width="400"><br><sub><b>Role</b>: a job description and one competency per line</sub></td>
-    <td align="center" valign="top" width="50%"><img src="docs/scorecard.png" alt="Scorecard headed 'Strong yes' with a summary, then each competency with a 1–5 bar, quoted evidence and reasoning, followed by strengths, concerns, red flags and follow-up questions" width="400"><br><sub><b>Scorecard</b>: score, evidence and reasoning per competency</sub></td>
+    <td align="center" valign="top" width="40%"><img src="docs/home.png" alt="Home screen: 'Hi, Interviewer!' header with a black Load example pill and a round API key button, the Role card with job description and rubric, and Paste and Upload cards for the transcript" width="400"><br><sub><b>Setup</b>: role, rubric and three ways to add the interview</sub></td>
+    <td align="center" valign="top" width="30%"><img src="docs/phone.png" alt="The same scorecard on a phone: the black hero card, the gray competency chart and the evidence ring stacked in one column" width="220"><br><sub><b>On a phone</b>: the dashboard stacks into one column</sub></td>
+    <td align="center" valign="top" width="30%"><img src="docs/scorecard.png" alt="The full scorecard: hero, chart and ring, a summary, one white card per competency with score, quoted evidence and reasoning, black Strengths, Concerns and Red flags cards, and a Follow-up questions card" width="220"><br><sub><b>Full scorecard</b>: evidence and reasoning per competency, then the findings</sub></td>
   </tr>
 </table>
 

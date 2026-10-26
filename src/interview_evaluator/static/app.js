@@ -58,6 +58,7 @@ $("key-clear").addEventListener("click", () => {
 });
 keyDialog.addEventListener("cancel", () => closeKeyDialog(null));
 $("key-button").addEventListener("click", () => askForKey());
+$("key-icon").addEventListener("click", () => askForKey());
 
 // Calls the API with the saved key; on a 401 asks for a key once and retries.
 async function apiFetch(path, options = {}) {
@@ -431,7 +432,7 @@ $("eval-form").addEventListener("submit", async (e) => {
     if (!res.ok) { setStatus(""); showFormError(await errorMessage(res)); return; }
     setStatus("");
     const result = await res.json();
-    renderScorecard(result.evaluation, { result });
+    renderScorecard(result.evaluation, { result, qaCount: req.transcript.length });
   } catch {
     setStatus("");
     showFormError("Could not reach the server. Check your connection and try again.");
@@ -443,53 +444,139 @@ $("eval-form").addEventListener("submit", async (e) => {
 // ---- scorecard
 const REC_LABELS = { strong_yes: "Strong yes", yes: "Yes", lean_no: "Lean no", no: "No" };
 
-function listSection(title, items) {
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function svg(tag, attrs = {}, ...children) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  for (const child of children) node.append(child);
+  return node;
+}
+
+// "Root-cause analysis: breaks a problem..." -> ["Root-cause analysis", "breaks a problem..."]
+function splitCompetency(text) {
+  const m = text.match(/^(.*?)(?::\s+|\s[-–—]\s)(.+)$/);
+  return m ? [m[1].trim(), m[2].trim()] : [text, ""];
+}
+
+function listCard(title, items, { dark = false } = {}) {
   const body = items && items.length
     ? el("ul", {}, ...items.map((t) => el("li", {}, t)))
     : el("p", { class: "none" }, "None");
-  return el("div", {}, el("h3", {}, title), body);
+  return el("div", { class: `card list-card${dark ? " dark" : ""}` }, el("h3", {}, title), body);
+}
+
+// Pure: the hero numbers for a scorecard.
+function scoreStats(ev) {
+  const scores = ev.scores.map((s) => s.score);
+  const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+  return {
+    avg,
+    strong: scores.filter((s) => s >= 4).length,
+    adequate: scores.filter((s) => s === 3).length,
+    weak: scores.filter((s) => s <= 2).length,
+    evidenced: scores.filter((s) => s > 1).length,
+    total: scores.length,
+  };
+}
+
+function heroCard(ev, stats, title, qaCount) {
+  const stat = (value, label) => el("div", { class: "hero-stat" },
+    el("span", { class: "big" }, value), el("span", { class: "hero-label" }, label));
+  const tile = (cls, value, label, range) => el("div", { class: `tile ${cls}`, title: `${label}: ${range}` },
+    el("span", { class: "tile-value" }, String(value)), el("span", { class: "tile-label" }, label),
+    el("span", { class: "tile-range" }, range));
+  return el("div", { class: "card dark hero" },
+    el("div", { class: "row-between" },
+      el("h2", {}, title),
+      el("span", { class: `recommendation rec-${ev.recommendation}` },
+        REC_LABELS[ev.recommendation] || ev.recommendation)),
+    el("div", { class: "hero-stats" },
+      stat(stats.avg.toFixed(1), "average score out of 5"),
+      ...(qaCount ? [el("span", { class: "hero-divider", "aria-hidden": "true" }),
+        stat(String(qaCount), `Q&A${qaCount === 1 ? "" : "s"} scored`)] : [])),
+    el("div", { class: "hero-bar", role: "img", "aria-label": `Average ${stats.avg.toFixed(1)} out of 5` },
+      el("span", { style: `width:${(stats.avg / 5) * 100}%` })),
+    el("div", { class: "tiles" },
+      tile("tile-strong", stats.strong, "Strong", "scored 4–5"),
+      tile("tile-adequate", stats.adequate, "Adequate", "scored 3"),
+      tile("tile-weak", stats.weak, "Weak", "scored 1–2")));
+}
+
+function chartCard(ev) {
+  const bars = ev.scores.map((s, i) => {
+    const [name] = splitCompetency(s.competency);
+    return el("div", { class: "chart-col", title: `${name}: ${s.score}/5` },
+      el("span", { class: "chart-value" }, String(s.score)),
+      el("div", { class: "chart-track" },
+        el("span", { class: "chart-bar", style: `height:${(Math.max(0, Math.min(5, s.score)) / 5) * 100}%` })),
+      el("span", { class: "chart-label" }, String(i + 1)));
+  });
+  const summary = ev.scores.map((s, i) => `${i + 1}. ${splitCompetency(s.competency)[0]}: ${s.score} of 5`).join("; ");
+  return el("div", { class: "card gray chart-card" },
+    el("h3", {}, "Score by competency"),
+    el("div", { class: "chart", role: "img", "aria-label": summary }, ...bars));
+}
+
+function ringCard(ev, stats) {
+  const pct = stats.total ? stats.evidenced / stats.total : 0;
+  const r = 44, c = 2 * Math.PI * r;
+  const ring = svg("svg", { viewBox: "0 0 120 120", class: "ring", role: "img",
+    "aria-label": `${stats.evidenced} of ${stats.total} competencies have evidence` },
+    svg("circle", { cx: 60, cy: 60, r, class: "ring-track" }),
+    svg("circle", { cx: 60, cy: 60, r, class: "ring-fill",
+      "stroke-dasharray": `${c * pct} ${c}`, transform: "rotate(-90 60 60)" }),
+    svg("text", { x: 60, y: 66, "text-anchor": "middle", class: "ring-text" }, `${Math.round(pct * 100)}%`));
+  const copy = el("button", { type: "button", class: "ghost" }, "Copy as JSON");
+  copy.addEventListener("click", () => copyJson(ev, copy));
+  return el("div", { class: "card ring-card" },
+    el("h3", {}, "Evidence coverage"),
+    el("p", { class: "ring-lead" }, el("b", {}, `${stats.evidenced}/${stats.total}`), " competencies backed by evidence"),
+    el("div", { class: "ring-row" },
+      el("ul", { class: "legend" },
+        el("li", {}, el("span", { class: "dot dot-ink" }), "With evidence"),
+        el("li", {}, el("span", { class: "dot dot-light" }), "No evidence")),
+      ring),
+    el("div", { class: "actions" }, copy));
+}
+
+function competencyCard(s, i, { previous, live }) {
+  const [name, detail] = splitCompetency(s.competency);
+  const before = previous ? previous[s.competency] : undefined;
+  const changed = before !== undefined && before !== s.score;
+  const value = el("span", { class: "comp-score" }, el("b", {}, String(s.score)), "/5");
+  if (changed) {
+    value.append(el("span", { class: "delta", "aria-label": `was ${before}` },
+      `${s.score > before ? "▲" : "▼"} from ${before}`));
+  }
+  const title = el("div", { class: "comp-title" },
+    el("span", { class: "comp-num" }, String(i + 1)),
+    el("div", {}, el("h3", {}, name), ...(detail ? [el("p", { class: "hint" }, detail)] : [])));
+  if (live && s.score <= 1) title.append(el("span", { class: "badge" }, "No evidence yet"));
+  return el("li", { class: `card comp${changed ? " changed" : ""}` },
+    el("div", { class: "comp-head" }, title, value),
+    el("div", { class: "bar", role: "img", "aria-label": `${s.score} out of 5` },
+      el("span", { style: `width:${Math.max(0, Math.min(5, s.score)) * 20}%` })),
+    el("blockquote", { class: "evidence" }, s.evidence),
+    el("p", { class: "reasoning" }, s.reasoning));
 }
 
 // previous: {competency: score} from the last live update, to highlight movement.
 // live: flags score-1 competencies as still needing evidence.
 // result: the stored-evaluation envelope {id, calibration_example_ids} for final scorecards.
-function renderScorecard(ev, { title = "Scorecard", previous = null, live = false, scroll = true, result = null } = {}) {
+// qaCount: how many Q&As this scorecard covers (shown in the hero when known).
+function renderScorecard(ev, { title = "Scorecard", previous = null, live = false, scroll = true, result = null, qaCount = 0 } = {}) {
   const target = $("result");
-  const scores = el("ul", { class: "scores" }, ...ev.scores.map((s) => {
-    const pct = Math.max(0, Math.min(5, s.score)) * 20;
-    const before = previous ? previous[s.competency] : undefined;
-    const changed = before !== undefined && before !== s.score;
-    const name = el("span", {}, s.competency);
-    if (live && s.score <= 1) name.append(el("span", { class: "badge" }, "No evidence yet"));
-    const value = el("span", {}, `${s.score}/5`);
-    if (changed) {
-      value.append(el("span", { class: "delta", "aria-label": `was ${before}` },
-        `${s.score > before ? "▲" : "▼"} from ${before}`));
-    }
-    return el("li", changed ? { class: "changed" } : {},
-      el("div", { class: "score-head" }, name, value),
-      el("div", { class: "bar", role: "img", "aria-label": `${s.score} out of 5` },
-        el("span", { style: `width:${pct}%` })),
-      el("blockquote", { class: "evidence" }, s.evidence),
-      el("p", { class: "reasoning" }, s.reasoning));
-  }));
-  const copy = el("button", { type: "button", class: "ghost" }, "Copy as JSON");
-  copy.addEventListener("click", () => copyJson(ev, copy));
+  const stats = scoreStats(ev);
   target.replaceChildren(
-    el("div", { class: "row-between" },
-      el("h2", {}, title),
-      el("span", { class: `recommendation rec-${ev.recommendation}` },
-        REC_LABELS[ev.recommendation] || ev.recommendation)),
-    el("p", {}, ev.summary),
-    ...calibrationNote(result),
-    el("h3", {}, "Competencies"),
-    scores,
-    el("div", { class: "lists" },
-      listSection("Strengths", ev.strengths),
-      listSection("Concerns", ev.concerns),
-      listSection("Red flags", ev.red_flags),
-      listSection("Follow-up questions", ev.follow_up_questions)),
-    el("div", { class: "actions" }, copy),
+    el("div", { class: "dash-row" }, heroCard(ev, stats, title, qaCount), chartCard(ev), ringCard(ev, stats)),
+    el("div", { class: "card summary-card" }, el("h3", {}, "Summary"), el("p", {}, ev.summary), ...calibrationNote(result)),
+    el("ul", { class: "comp-grid" }, ...ev.scores.map((s, i) => competencyCard(s, i, { previous, live }))),
+    el("div", { class: "finding-row" },
+      listCard("Strengths", ev.strengths, { dark: true }),
+      listCard("Concerns", ev.concerns, { dark: true }),
+      listCard("Red flags", ev.red_flags, { dark: true })),
+    listCard("Follow-up questions", ev.follow_up_questions),
     ...(result && result.id ? [approvePanel(result.id, ev)] : []),
   );
   target.hidden = false;
@@ -509,7 +596,7 @@ function calibrationNote(result) {
 
 // ---- approval: turns a stored evaluation into a calibration example, optionally corrected
 function approvePanel(id, ev) {
-  const panel = el("div", { class: "approve" });
+  const panel = el("div", { class: "card approve" });
   const message = el("p", { class: "hint", role: "status" });
   const post = async (path, body) => {
     const res = await apiFetch(`/evaluations/${encodeURIComponent(id)}/${path}`, {
@@ -650,8 +737,8 @@ function setLiveActive(active) {
   $("live-active").hidden = !active;
 }
 
-function showLiveScorecard(ev, { title = "Live scorecard", scroll = false, result = null } = {}) {
-  renderScorecard(ev, { title, previous: live.previous, live: !result, scroll, result });
+function showLiveScorecard(ev, { title = "Live scorecard", scroll = false, result = null, qaCount = 0 } = {}) {
+  renderScorecard(ev, { title, previous: live.previous, live: !result, scroll, result, qaCount });
   live.previous = scoreMap(ev);
 }
 
@@ -681,7 +768,7 @@ function connectEvents() {
     live.shownQa = d.qa_count;
     setStatus("");
     showLiveError("");
-    showLiveScorecard(d.evaluation);
+    showLiveScorecard(d.evaluation, { qaCount: d.qa_count });
   });
   source.addEventListener("error", (e) => {
     if (!e.data) return;  // a transport error (handled by onerror), not our `error` event
@@ -783,8 +870,9 @@ $("live-end").addEventListener("click", async () => {
     setStatus("");
     if (!res.ok && res.status !== 404) { showLiveError(await errorMessage(res)); return; }
     const final = res.ok ? await res.json() : null;
+    const qaCount = live.transcript.length;
     closeLive();
-    if (final) showLiveScorecard(final.evaluation, { title: "Final scorecard", scroll: true, result: final });
+    if (final) showLiveScorecard(final.evaluation, { title: "Final scorecard", scroll: true, result: final, qaCount });
     else showLiveError("This live session has expired. Start a new one.");
   } catch {
     setStatus("");
@@ -1110,7 +1198,7 @@ async function restoreLive() {
     renderLiveTranscript(state.transcript);
     setLiveActive(true);
     selectTab("live");
-    if (state.latest_evaluation) showLiveScorecard(state.latest_evaluation);
+    if (state.latest_evaluation) showLiveScorecard(state.latest_evaluation, { qaCount: state.evaluated_qa_count });
     live.shownQa = state.evaluated_qa_count;
     connectEvents();
   } catch {
