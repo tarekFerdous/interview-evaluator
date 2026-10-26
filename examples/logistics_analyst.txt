@@ -1,0 +1,102 @@
+LOGISTICS DATA ANALYST: paste-ready sample for the web UI
+=========================================================
+
+Paste each section into its UI field. Each Q&A set goes into the "Paste" box as a whole.
+
+
+---------------------------------------------------------
+JOB DESCRIPTION
+---------------------------------------------------------
+
+Logistics Data Analyst, Fresh Produce Distribution
+
+We run cold-chain distribution for 140 independent grocery stores across three states, moving roughly 900 pallets of fresh produce a day out of two warehouses. You'll join a four-person operations analytics team that reports to the VP of Supply Chain.
+
+What you'll do:
+- Build and maintain demand forecasts for perishable SKUs, where a bad forecast means either empty shelves or spoiled stock
+- Analyze route, load and delivery-window data to cut truck miles and late deliveries
+- Investigate shrink (spoilage, damage, temperature excursions) and trace it back to root causes in the warehouse or on the road
+- Turn messy WMS, telematics and store-order data into dashboards that warehouse leads and dispatchers actually use
+- Present findings to non-technical managers and push for process changes on the floor
+
+What we're looking for:
+- 2+ years in a data analyst role, ideally in logistics, retail or manufacturing
+- Strong SQL; Python or R for analysis and forecasting
+- Experience with a BI tool (Power BI, Tableau or Looker)
+- Comfort with imperfect data: missing scans, duplicate orders, sensor gaps
+- Clear communication with people who live on the warehouse floor, not in spreadsheets
+- Bonus: time-series forecasting, vehicle routing, or cold-chain experience
+
+Hybrid: three days a week on site at the main warehouse.
+
+
+---------------------------------------------------------
+RUBRIC NAME
+---------------------------------------------------------
+
+Logistics Data Analyst
+
+
+---------------------------------------------------------
+RUBRIC (one competency per line)
+---------------------------------------------------------
+
+SQL and data wrangling: cleans and joins messy operational data (duplicates, missing scans, sensor gaps) and explains the checks they used
+Forecasting and statistical reasoning: picks sensible methods for perishable demand, handles seasonality and promotions, and knows how to measure forecast error
+Root-cause analysis: breaks a problem like rising spoilage into testable hypotheses and follows the evidence instead of jumping to a fix
+Operational and business sense: ties analysis to cost, waste, on-time delivery or service level, and understands the trade-offs warehouse and transport teams face
+Data visualization and dashboards: builds reports the operations team actually uses, designed around the decisions they make
+Communicating with non-technical stakeholders: explains findings plainly to dispatchers and managers and gets buy-in for changes
+Ownership and prioritization: drives work end to end, manages competing requests, and follows up after delivering the analysis
+
+
+---------------------------------------------------------
+Q&A SET 1: expected recommendation YES or STRONG YES (scored strong_yes in testing)
+---------------------------------------------------------
+
+Q: Tell me about a time you had to work with really messy operational data.
+A: At my last job at a frozen-food distributor, I was asked why our on-time delivery number looked so much better than what stores were complaining about. When I pulled the telematics data, about 12% of deliveries had no arrival scan at all, and the report was just dropping those rows. So the missing ones were silently excluded, and they were mostly the late ones because drivers skipped the scan when they were rushing. I matched the GPS geofence entry times against store locations to infer arrival for the missing scans, checked the method against a week where we had both, and it agreed within about four minutes on 95% of stops. The corrected on-time rate went from 94% down to 86%, which matched what stores were saying.
+
+Q: How would you approach forecasting demand for something like fresh strawberries?
+A: I'd start with daily sales history per store, but sales aren't the same as demand when you stock out, so I'd flag stockout days and treat those as censored. Strawberries are very seasonal and very promo-driven, so I'd include season, week of year, price and promo flags, and probably weather, since hot weekends spike berries. I'd probably start with something simple like a seasonal baseline plus promo lift, and compare against a gradient-boosted model. For measuring error I'd use weighted MAPE or bias by store, and I'd care a lot about bias because overforecasting a perishable means you throw it away.
+
+Q: Spoilage on leafy greens went up 30% last quarter. How would you figure out why?
+A: First I'd check whether it's real or a recording change, like a new shrink reason code or a change in who logs it. Then I'd split it by store, warehouse, supplier, route and week to see if it's concentrated somewhere. For greens the usual suspects are temperature and time, so I'd pull the reefer temperature logs and dock dwell times and look for excursions or longer waits, and check if receiving shelf-life checks changed. Supplier is possible too, but I'd want the data to point there before going to procurement. Once I had a likely cause I'd confirm it with the warehouse lead before calling it.
+
+Q: Have you built a dashboard that people actually used? What made it work?
+A: Yes, a dispatch dashboard. The first version had like twenty charts and nobody opened it. I sat with two dispatchers for a morning and realized they only needed to know three things at 5 a.m.: which routes are overloaded, which drivers are out, and which stores have tight delivery windows. I rebuilt it as one screen with those three things and red flags, and it became the thing they open before the morning call. Usage went from basically zero to every shift.
+
+Q: How do you explain an analysis to a warehouse manager who doesn't trust the numbers?
+A: I'd start by asking what they're seeing on the floor, because usually they know something the data doesn't. Then I'd walk them through a few specific examples they'd recognize, like particular loads or days, rather than overall stats. If the data has a gap they point out, I fix it and come back. I had a manager push back on a pick-rate analysis once, and it turned out a scanner was double-logging on one shift. After I fixed it he was the one presenting the results in the ops meeting.
+
+Q: Tell me about a time you had more requests than you could handle.
+A: I had the VP asking for a route cost study, finance wanting shrink numbers for month-end, and three ad-hoc requests from warehouse leads. I listed everything with who asked, the deadline, and what decision it fed. Month-end was a hard date, so that went first. I told the VP the route study would slip a week and why, and he was fine with it. For the ad-hoc ones I found two were basically the same question, so I built one small report and sent it to both. After the route study shipped I checked back a month later to see if they'd changed the routes, and they had changed two of them, which saved around 300 miles a week.
+
+Q: What's the trade-off between fuller trucks and on-time delivery?
+A: Fuller trucks lower cost per case, but to fill them you often have to combine stores that aren't close or hold orders, which pushes later stops outside their delivery windows. For produce, a late delivery can also mean shorter shelf life at the store. So I'd look at cost per case against on-time rate and shrink by route, and find where the curve bends, instead of maximizing load factor alone.
+
+
+---------------------------------------------------------
+Q&A SET 2: expected recommendation NO
+---------------------------------------------------------
+
+Q: Tell me about a time you had to work with really messy operational data.
+A: Most of the data I've worked with was already pretty clean because our data engineering team handled that. When there were missing values I'd usually just filter those rows out so they didn't mess up the averages. I think it's better to work with the data you trust than to guess.
+
+Q: How would you approach forecasting demand for something like fresh strawberries?
+A: I'd take last year's sales for the same month and maybe add a few percent for growth. Forecasting is never going to be perfect anyway, so I'd rather keep it simple and let the stores adjust their orders if it's off.
+
+Q: Spoilage on leafy greens went up 30% last quarter. How would you figure out why?
+A: It's probably the supplier, so I'd tell procurement to find a new one. Greens are just hard to keep fresh, so some of that is going to happen no matter what.
+
+Q: Have you built a dashboard that people actually used? What made it work?
+A: I built a Tableau dashboard with all the KPIs on it: on-time rate, fill rate, shrink, cost per case, a bunch of others, around thirty charts. I'm not sure how much people used it, but it had everything they could need, so it was up to them to look at it.
+
+Q: How do you explain an analysis to a warehouse manager who doesn't trust the numbers?
+A: The numbers are the numbers. If they don't trust them, I'd send them the query so they can see how it was calculated. Usually people come around eventually, and if not, my manager can handle that conversation.
+
+Q: Tell me about a time you had more requests than you could handle.
+A: I just work on them in the order they come in. It's not really my place to decide what's more important, so if something is late, the person can follow up with me. I usually get to everything eventually.
+
+Q: What's the trade-off between fuller trucks and on-time delivery?
+A: Fuller trucks are always better because you save on fuel and drivers. If deliveries are a bit late, the stores can adjust their schedules.
