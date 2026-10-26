@@ -20,9 +20,9 @@ Paste a transcript, upload a call recording or score a live interview as it happ
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 [![CI/CD](https://github.com/tarekFerdous/interview-evaluator/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/tarekFerdous/interview-evaluator/actions/workflows/ci-cd.yml)
 
-<img src="docs/demo.gif" alt="Animated: on a beige dashboard with a white sidebar, filling in a Logistics Data Analyst job description and rubric, pasting a seven-question transcript that becomes seven Q&A cards next to a dashed Add Q&A card, clicking Evaluate, then the scorecard: a black hero card with 'Strong yes', a 4.7 average and strong/adequate/weak tiles, a gray bar chart per competency, a 100% evidence-coverage ring, and white competency cards with quoted evidence" width="820">
+<img src="docs/demo-transcript.gif" alt="Animated: on a beige dashboard with a white sidebar, filling in a Logistics Data Analyst job description and rubric, pasting a seven-question transcript that becomes seven Q&A cards next to a dashed Add Q&A card, clicking Evaluate, then the scorecard: a black hero card with 'Strong yes', a 4.7 average and strong/adequate/weak tiles, a gray bar chart per competency, a 100% evidence-coverage ring, and white competency cards with quoted evidence" width="820">
 
-<sub>A real run against Claude, recorded with Playwright. The wait for the scorecard (about 18 s) is cut. The sample role and transcript are in <a href="examples/logistics_analyst.txt"><code>examples/logistics_analyst.txt</code></a>.</sub>
+<sub>A real run against Claude, recorded with Playwright. The wait for the scorecard (about 18 s) is cut. The sample role and transcript are in <a href="examples/logistics_analyst.txt"><code>examples/logistics_analyst.txt</code></a>. The live-interview demo is under <a href="#live-interview">How it looks</a>.</sub>
 
 </div>
 
@@ -44,6 +44,15 @@ Paste a transcript, upload a call recording or score a live interview as it happ
 - **Near-zero hosting cost.** It scales to zero on Azure Container Apps and uses free tiers for Speech, Postgres (Neon) and the image registry (ghcr.io).
 
 ## How it looks
+
+### Live interview
+
+<p align="center">
+  <img src="docs/demo-live.gif" alt="Animated: in the Live interview tab, starting a session, typing a question and pasting the candidate's answer, then the live scorecard appears ('Lean no', 1 Q&A, most competencies flagged 'No evidence yet'). Two more answers follow; after each, the dashboard re-scores, changed competencies are highlighted in yellow with an up arrow, and ending the interview shows a 'Yes' final scorecard over 3 Q&As" width="820"><br>
+  <sub>Scoring as the interview happens: the dashboard re-scores after every answer, highlights what changed and flags competencies with no evidence yet. A real run against Claude; the waits for each re-score (about 15–20 s) are cut. Answers are typed here; the microphone does the same from speech.</sub>
+</p>
+
+### Scorecard
 
 <p align="center">
   <img src="docs/dashboard.png" alt="Scorecard dashboard: white sidebar with Transcript, Live interview and API key; a black hero card with 'Strong yes', a 4.7 average score, 7 Q&As scored and tiles for 7 strong, 0 adequate and 0 weak competencies; a gray bar chart of the score per competency; a white ring showing 7 of 7 competencies backed by evidence; a summary card and the first competency cards" width="820"><br>
